@@ -9,14 +9,20 @@ define(function()
         // Filter garbage collected elements from observed list
         observedElements = observedElements.filter(([elementRef]) => elementRef.deref());
 
-        // Call show() for added nodes
+        // Call show() for newly added nodes
         observedElements
-            .filter(([elementRef, _show, _hide]) => mutationsContainElement(mutations, 'addedNodes', elementRef.deref()))
+            .filter(([elementRef, _show, _hide]) => {
+                let el = elementRef.deref();
+                return document.body.contains(el) && el.props?.shown === false;
+            })
             .forEach(([elementRef, show, _hide]) => show(elementRef.deref()))
 
-        // Call hide() for removed nodes
+        // Call hide() for newly removed nodes
         observedElements
-            .filter(([elementRef, _show, _hide]) => mutationsContainElement(mutations, 'removedNodes', elementRef.deref()))
+            .filter(([elementRef, _show, _hide]) => {
+                let el = elementRef.deref();
+                return !document.body.contains(el) && el.props?.shown;
+            })
             .forEach(([elementRef, _show, hide]) => hide(elementRef.deref()))
     }).observe(document.body,
     {
@@ -27,7 +33,7 @@ define(function()
 
     function mutationsContainElement(mutations, mutationProperty, element)
     {
-        let allNodes = mutations.flatMap(mutation => mutation[mutationProperty]);
+        let allNodes = mutations.flatMap(mutation => Array.from(mutation[mutationProperty]));
 
         // Check if any added node matches the element,
         // or if any descendant of any of the added nodes matches.
@@ -57,10 +63,17 @@ define(function()
     })
     {
         el = element(el, id, tag);
-        el.props = props;
+        el.props = Object.assign(props, {shown: false, showPending: false});
         for (let cls of classList) el.classList.add(cls);
         show = makeShow(show);
-        if (document.body.contains(element)) show(element);
+        if (document.body.contains(el))
+        {
+            show(element);
+        }
+        else
+        {
+            props.shown = false;
+        }
         observedElements.push([new WeakRef(el), show, makeHide(hide)]);
         addEventListeners(el, eventListeners);
         setupShowOnResume(el, showOnResume, show)
@@ -71,9 +84,17 @@ define(function()
     function makeShow(show)
     {
         // Dispatch shown event after show.
-        return el => Promise.resolve(show(el)).then(
-            () => el.dispatchEvent(new CustomEvent('shown'))
-        );
+        return el => {
+            if (el.props.shown) return;
+            if (el.props.showPending) return;
+            el.props.showPending = true;
+            return Promise.resolve(show(el)).then(
+            () => {
+                el.dispatchEvent(new CustomEvent('shown'));
+                el.props.shown = true;
+                el.props.showPending = false;
+            });
+        }
     }
 
 
@@ -83,7 +104,10 @@ define(function()
         {
             el = document.createElement(tag);
         }
-        el.id = id;
+        if (id)
+        {
+            el.id = id;
+        }
         return el;
     }
 
@@ -92,7 +116,7 @@ define(function()
     {
         if (eventListeners)
         {
-            for (let [eventName, actualListener] of actualEventListeners(el, eventListeners).entries())
+            for (let [eventName, actualListener] of Object.entries(actualEventListeners(el, eventListeners)))
             {
                 el.addEventListener(eventName, actualListener);
             }
@@ -104,8 +128,8 @@ define(function()
     {
         return Object.fromEntries(
             Object.entries(eventListeners).map(
-                ([eventName, eventListener]) =>
-                    [eventName, actualEventListener(el, eventListener)]
+                ([eventName, eventListenerGroup]) =>
+                    [eventName, actualEventListener(el, eventListenerGroup)]
             )
         );
     }
@@ -200,9 +224,15 @@ define(function()
     {
         return el =>
         {
+            if (!el.props.shown) return;
+
             // Dispatch hidden after hide
             Promise.resolve(hide(el)).then(
-                () => el.dispatchEvent(new CustomEvent('hidden')));
+                () => {
+                    el.dispatchEvent(new CustomEvent('hidden'));
+                    el.props.shown = false;
+                }
+            );
             removeOnResumeListener(el);
         };
     }
