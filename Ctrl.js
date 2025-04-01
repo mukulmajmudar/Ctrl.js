@@ -63,7 +63,7 @@ define(function()
     })
     {
         el = element(el, id, tag);
-        el.props = Object.assign(props, {shown: false, showPending: false});
+        el.props = Object.assign(props, {shown: false, showPending: false, hidePending: false});
         for (let cls of classList) el.classList.add(cls);
         show = makeShow(show);
         if (document.body.contains(el))
@@ -225,12 +225,14 @@ define(function()
         return el =>
         {
             if (!el.props.shown) return;
-
+            if (el.props.hidePending) return;
+            el.props.hidePending = true;
             // Dispatch hidden after hide
             Promise.resolve(hide(el)).then(
                 () => {
                     el.dispatchEvent(new CustomEvent('hidden'));
                     el.props.shown = false;
+                    el.props.hidePending = false;
                 }
             );
             removeOnResumeListener(el);
