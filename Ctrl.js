@@ -68,7 +68,7 @@ define(function()
         show = makeShow(show);
         if (document.body.contains(el))
         {
-            show(element);
+            show(el);
         }
         else
         {
