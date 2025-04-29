@@ -53,48 +53,62 @@ define(function()
     function el({
         classList = [],
         el,
-        eventListeners,
+        eventListeners = {},
         hide = () => {},
         id,
-        tag = 'div',
         props = {},
         show,
-        showOnResume = false
+        showOnResume = false,
+        style = {},
+        tag = 'div',
     })
     {
         el = element(el, id, tag);
-        el.props = Object.assign(props, {shown: false, showPending: false, hidePending: false});
+        el.props = props = {
+            ...props,
+            shown: false,
+            showPending: false,
+            hidePending: false
+        };
         for (let cls of classList) el.classList.add(cls);
         show = makeShow(show);
+        eventListeners['show'] = Object.assign({}, eventListeners['show'], {'': show});
+        addEventListeners(el, eventListeners);
+        observedElements.push([new WeakRef(el), show, makeHide(hide)]);
         if (document.body.contains(el))
         {
             show(el);
         }
         else
         {
-            props.shown = false;
+            el.props.shown = false;
         }
-        observedElements.push([new WeakRef(el), show, makeHide(hide)]);
-        addEventListeners(el, eventListeners);
         setupShowOnResume(el, showOnResume, show)
+        Object.assign(el.style, style);
         return el;
     }
 
 
     function makeShow(show)
     {
-        // Dispatch shown event after show.
-        return el => {
-            if (el.props.shown) return;
+        return async function(el)
+        {
             if (el.props.showPending) return;
             el.props.showPending = true;
-            return Promise.resolve(show(el)).then(
-            () => {
+            el.dispatchEvent(new CustomEvent('showing'));
+            try
+            {
+                await show(el);
                 el.dispatchEvent(new CustomEvent('shown'));
                 el.props.shown = true;
                 el.props.showPending = false;
-            });
-        }
+            }
+            catch(e)
+            {
+                el.dispatchEvent(new CustomEvent('showError'));
+                throw e;
+            }
+        };
     }
 
 
@@ -114,12 +128,9 @@ define(function()
 
     function addEventListeners(el, eventListeners)
     {
-        if (eventListeners)
+        for (let [eventName, actualListener] of Object.entries(actualEventListeners(el, eventListeners)))
         {
-            for (let [eventName, actualListener] of Object.entries(actualEventListeners(el, eventListeners)))
-            {
-                el.addEventListener(eventName, actualListener);
-            }
+            el.addEventListener(eventName, actualListener);
         }
     }
 
@@ -144,7 +155,7 @@ define(function()
             // we have to process in order of innermost to outermost.
             let selectors = Object.keys(eventListeners);
             let processViewElEvent = selectors.includes('');
-            delete selectors[''];
+            selectors = selectors.filter(s => s !== '');
 
             // Store references to the original stop propagation functions
             let origStopPropagation = event.stopPropagation.bind(event);
