@@ -6,18 +6,16 @@ A lightweight, declarative library for implementing control logic in the MVC (Mo
 
 In web-based user interfaces, the *view* is already modeled by the native JavaScript `HTMLElement` instance. Code that builds the view, maps data to/from it, and handles user interaction is functional *control logic* which operates on the `HTMLElement`. Ctrl.js gives you a way to define this control logic using simple callbacks and event listeners.
 
-Unlike frameworks that introduce various abstraction layers over the DOM (virtual DOMs, component models, template compilers), Ctrl.js embraces the natural structure of web applications, providing a thin layer that organizes controller logic while leveraging the browser's native view system. This approach leads to minimal overhead and a programming model that aligns with how the web platform actually works.
+Many popular frameworks create a thick layer of abstraction that sits between developers and the web platform, introducing complicated component models, template languages, and complex "magic" that completely alters the web programming model. Although it can seem initially appealing, this approach leads to framework lock-in and skill erosion. Applications become deeply dependent on the framework's ecosystem, popularity, and life span. Developers over time become siloed and entrenched within such frameworks and forget, or never even learn, the fundamentals of the web platform.
 
-Many popular frameworks create an abstraction layer that sits between developers and the web platform, introducing proprietary component models, template languages, and state management systems. This approach often leads to framework lock-in, where applications become deeply dependent on the framework's ecosystem, making migrations difficult and tying the application's lifespan to the framework's continued support and popularity.
-
-Ctrl.js takes a fundamentally different approach by enhancing rather than replacing the web platform. It works directly with standard DOM elements and events, keeping your code closer to the platform and reducing dependency on external abstractions. This makes your application more portable, future-proof, and aligned with web standards evolution.
+Ctrl.js takes a fundamentally different approach by embracing rather than hiding the web platform. It works directly with standard DOM elements and events, keeping your code closer to the platform and reducing dependency on external abstractions. This approach leads to minimal overhead and a programming model that aligns with how the web platform actually works. Applications built with Ctrl.js are simple, flexible, and future-proof.
 
 ## Features
 
-- **Declarative Element Creation**: Simple API to create and configure DOM elements
-- **Automatic Lifecycle Management**: `show` and `hide` hooks for when elements are added to or removed from the DOM
-- **Advanced Event Delegation**: Event bubbling and delegation across nested elements
-- **Compact Footprint**: Lightweight solution with no dependencies
+- **Declarative Control Logic**: Simple API to define components and organize control logic.
+- **Automatic Lifecycle Management**: `show` and `hide` hooks for when elements are added to or removed from the DOM.
+- **Advanced Event Delegation**: Event bubbling and delegation across nested elements.
+- **Compact Footprint**: Lightweight solution with no dependencies.
 
 ## Installation
 
@@ -35,37 +33,71 @@ define(['path/to/Ctrl'], function(Ctrl) {
 
 ## Basic Usage
 
+Here is a simple counter component in Ctrl.js.
+
 ```javascript
+// Counter.js
+
 // Import or require the library
-const { el } = Ctrl;
-
-// Create a button element with lifecycle hooks
-const button = el({
-  tag: 'button',
-  id: 'my-button',
-  classList: ['btn', 'btn-primary'],
-  props: { counter: 0 },
-  show: (element) => {
-    // Render view based on current props
-    element.textContent = `Clicked ${element.props.counter} times`;
-  },
-  hide: (element) => {
-    console.log('Button removed from DOM');
-  },
-  eventListeners: {
-    click: {
-      '': (el, event) => {
-        // Update the data
-        el.props.counter++;
-        // Call show to update the view
-        show(el);
-      }
-    }
+define(['Ctrl'], function(Ctrl) {
+  'use strict';
+  
+  // Create an HTMLElement for the counter and define callbacks and events.
+  function el() {
+    return Ctrl.el({
+      id: 'counter',
+      classList: ['counter-container'],
+      props: { count: 0 },
+      show,
+      hide,
+      eventListeners: getEventListeners()
+    });
   }
+  
+  // Callback for when the element is added to the DOM.
+  async function show(el) {
+    el.innerHTML = `
+      <button class="decrement">-</button>
+      <span class="count">${el.props.count}</span>
+      <button class="increment">+</button>
+    `;
+  }
+  
+  // Callback for when the element is removed from the DOM.
+  function hide(el) {
+    console.log('Counter removed from DOM');
+    // Cleanup if needed
+  }
+  
+  // Declare event listeners
+  function getEventListeners() {
+    return {
+      click: {
+        '.increment': handleIncrement,
+        '.decrement': handleDecrement
+      }
+    };
+  }
+  
+  function handleIncrement(el, event) {
+    el.props.count++;
+    el.dispatchEvent(new CustomEvent('show'));  // Trigger show
+  }
+  
+  function handleDecrement(el, event) {
+    el.props.count--;
+    el.dispatchEvent(new CustomEvent('show'));  // Trigger show
+  }
+  
 });
+```
 
-// Add the button to the DOM
-document.body.appendChild(button);
+To use the component:
+
+```javascript
+// Create and add the counter to the page
+const counterEl = Counter.el();
+document.body.appendChild(counterEl);   // Counter.show(counterEl) will be called automatically
 ```
 
 ## API Documentation
@@ -78,15 +110,16 @@ Creates and configures a DOM element with lifecycle hooks and event handlers.
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `tag` | String | The HTML tag name (default: 'div') |
-| `id` | String | The element's ID attribute |
 | `classList` | Array | List of CSS classes to add |
 | `el` | Element | Existing element to configure (optional) |
-| `props` | Object | Custom properties to attach to the element |
-| `show` | Function | Callback when element is added to the DOM |
-| `hide` | Function | Callback when element is removed from the DOM |
-| `showOnResume` | Boolean | Whether to show the element when 'resume' event fires |
 | `eventListeners` | Object | Event configuration (see below) |
+| `hide` | Function | Callback when element is removed from the DOM (can be async) |
+| `id` | String | The element's ID attribute |
+| `props` | Object | Custom properties to attach to the element |
+| `show` | Function | Callback when element is added to the DOM (can be async) |
+| `showOnResume` | Boolean | Whether to show the element when 'resume' event fires |
+| `style` | Object | CSS styles to apply to the element |
+| `tag` | String | The HTML tag name (default: 'div') |
 
 #### Event Listeners
 
@@ -105,76 +138,85 @@ eventListeners: {
 ```
 
 Event handlers receive:
+
 - `el`: The element created via `el()`
 - `event`: The DOM event with an additional `delegatorTarget` property that references the element matching the selector
 
-## Event Propagation
+### Lifecycle Events
 
-Ctrl.js implements custom event propagation to support proper delegation. Both `event.stopPropagation()` and `event.stopImmediatePropagation()` work as expected within the delegation system.
+Elements created with Ctrl.js emit the following custom events during their lifecycle:
 
-## Examples
+- `showing`: Dispatched when the element begins to show
+- `shown`: Dispatched after the element is fully shown
+- `showError`: Dispatched if an error occurs during show
+- `hidden`: Dispatched after the element is hidden
 
-### Creating a Toggle Component
-
-```javascript
-const toggle = el({
-  classList: ['toggle-container'],
-  props: { active: false },
-  show: (element) => {
-    // Render based on current props
-    element.innerHTML = `
-      <div class="toggle-switch ${element.props.active ? 'active' : ''}"></div>
-      <div class="toggle-label">Toggle me</div>
-    `;
-  },
-  eventListeners: {
-    click: {
-      '': (el, event) => {
-        // Update data
-        el.props.active = !el.props.active;
-        // Call show to re-render with updated props
-        show(el);
-      }
-    }
-  }
-});
-
-document.querySelector('#app').appendChild(toggle);
-```
-
-### Modal with Event Delegation
+## Composing Components
 
 ```javascript
-const modal = el({
-  classList: ['modal'],
-  show: (element) => {
-    element.innerHTML = `
-      <div class="modal-backdrop"></div>
-      <div class="modal-content">
-        <button class="close-btn">×</button>
-        <h2>Modal Title</h2>
-        <p>Modal content goes here...</p>
-        <button class="confirm-btn">Confirm</button>
-      </div>
-    `;
-  },
-  eventListeners: {
-    click: {
-      '.close-btn': (el, event) => {
-        document.body.removeChild(el);
+define(['Ctrl', 'components/list', 'components/detail'], 
+function(Ctrl, List, Detail) {
+  'use strict';
+  
+  function el() {
+    return Ctrl.el({
+      classList: ['split-view'],
+      props: {
+        items: [],
+        selectedItemId: null
       },
-      '.confirm-btn': (el, event) => {
-        console.log('Confirmed!');
-        document.body.removeChild(el);
-      },
-      '.modal-backdrop': (el, event) => {
-        document.body.removeChild(el);
-      }
-    }
+      show,
+      hide,
+      eventListeners: getEventListeners()
+    });
   }
-});
+  
+  async function show(el) {
+    // Fetch items
+    el.props.items = await fetchItems();
 
-document.body.appendChild(modal);
+    // Define the container structure
+    el.innerHTML = `
+      <div class="list-container"></div>
+      <div class="detail-container"></div>
+    `;
+    
+    // Define the child components. show() will be called immediately on
+    // these components because they are already on the DOM.
+    el.props.listComponent = List.el({
+        el: el.querySelector('.list-container'),
+        items: el.props.items,
+        selectedId: el.props.selectedItemId,
+        onSelect: itemId => {
+          el.props.selectedItemId = itemId;
+          // Update the detail view
+          el.props.detailComponent.props.itemId = itemId;
+          show(el.props.detailComponent);
+        }
+      });
+    el.props.detailComponent = Detail.el({
+        el: el.querySelector('.detail-container'),
+        itemId: el.props.selectedItemId
+      });
+  }
+
+  async fetchItems() {
+    // Fetch from server
+  }
+  
+  function hide(el) {
+    // The child components will be automatically hidden
+    // by Ctrl.js when they're removed from the DOM
+  }
+  
+  function getEventListeners() {
+    return {
+      // Global events for the split view
+    };
+  }
+  
+  return {el};
+});
 ```
 
 ## Comparison with Popular Frontend Frameworks
@@ -185,97 +227,36 @@ Ctrl.js takes a different approach compared to comprehensive frontend frameworks
 
 | Feature | Ctrl.js | React/Vue/Svelte |
 |---------|---------|------------------|
-| **Purpose** | Lightweight controller logic | Complete UI rendering framework |
+| **Purpose** | Lightweight control logic organization | Comprehensive UI application framework |
 | **Size** | Tiny footprint (~2KB) | Larger runtime (35KB-100KB+) |
 | **Learning Curve** | Minimal, works with standard DOM | Steeper, framework-specific concepts |
 | **State Management** | Manual / integrable with external libraries | Built-in reactive state management |
-| **Rendering Model** | Direct DOM manipulation | Virtual DOM or compilation-based |
-| **Component Model** | Function-based element factories | Component classes/functions with templates |
+| **Rendering Model** | Direct DOM manipulation, integrable with template libraries | Virtual DOM or compilation-based |
+| **Component Model** | Function based with lifecycle hooks and events | Component classes/functions with templates |
 | **Build Requirements** | None, works with plain JS | Often requires build tools |
-| **Architecture** | Composable with specialized libraries | Opinionated, all-in-one solutions |
+| **Architecture** | Composable with other specialized libraries | Opinionated, all-in-one solutions |
 
 ### Composable Architecture
 
-One of Ctrl.js's key advantages is its ability to function as part of a composable frontend architecture. Unlike monolithic frameworks that provide opinions on every aspect of application development, Ctrl.js focuses exclusively on DOM manipulation and event handling, allowing you to:
+One of Ctrl.js's advantages is its ability to function as part of a composable frontend architecture. Unlike monolithic frameworks that provide opinions on every aspect of application development, Ctrl.js focuses exclusively on component lifecycle management and event handling, allowing you to:
 
-- Pair it with specialized state management libraries (Redux, MobX, Zustand)
-- Use dedicated routing solutions (page.js, navigo)
+- Pair it with specialized state management libraries
+- Use dedicated routing solutions
 - Add form validation, data fetching, or other utilities as needed
 
 This "pick the best tool for each job" approach can lead to more flexible, maintainable applications where each part of the system excels at its specific task. It also enables incremental adoption and easier migration paths compared to all-or-nothing framework decisions.
 
-### Integration Example with State Management
+## Ctrl.js may be right for you if...
 
-```javascript
-// Component that integrates with a state management library
-const counterComponent = el({
-  tag: 'div',
-  classList: ['counter-container'],
-  props: { count: 0 },
-  show: (element) => {
-    // Render based on current props
-    element.innerHTML = `
-      <button class="decrement">-</button>
-      <span class="count">${element.props.count}</span>
-      <button class="increment">+</button>
-    `;
-  },
-  hide: (element) => {
-    // Clean up subscription when element is removed
-    if (element.props.unsubscribe) {
-      element.props.unsubscribe();
-    }
-  },
-  eventListeners: {
-    click: {
-      '.increment': (el, event) => {
-        store.dispatch({ type: 'INCREMENT' });
-      },
-      '.decrement': (el, event) => {
-        store.dispatch({ type: 'DECREMENT' });
-      }
-    }
-  }
-});
+- You are disillusioned with framework abstractions, complexities, and lock-in.
+- You are building an application that might outlive current framework trends.
+- You are looking for a lightweight declarative method of managing your control logic.
 
-// Set up store subscription after creating the component
-const unsubscribe = store.subscribe(() => {
-  const state = store.getState();
-  // Update component props from store
-  counterComponent.props.count = state.count;
-  // Call show to re-render with updated props
-  show(counterComponent);
-});
+## Ctrl.js may not work well for you if...
 
-// Store unsubscribe function for cleanup
-counterComponent.props.unsubscribe = unsubscribe;
-
-document.querySelector('#app').appendChild(counterComponent);
-```
-
-### When to Choose Ctrl.js
-
-- **New applications** that benefit from a lightweight, standards-based approach
-- **Composable architectures** that combine Ctrl.js for DOM interaction with specialized libraries for state management, routing, and other concerns
-- **Large-scale applications** that benefit from a modular approach with clear separation of concerns
-- **Performance-sensitive contexts** where minimal bundle size and runtime overhead are critical
-- **Projects valuing web standards** and avoiding framework-specific abstractions
-- **Applications requiring longevity** that might outlive current framework trends
-- **Enhancing existing web applications** without rewriting everything
-- **Server-rendered applications** needing progressive enhancement
-- **Environments with limited resources** like embedded systems or legacy browsers
-
-### When to Choose React/Vue/Svelte
-
-- Projects requiring **an integrated, all-in-one solution** with a consistent programming model
-- Teams preferring **standardized patterns** across all aspects of frontend development
-- Applications needing **extensive ecosystem support** with pre-built solutions for common problems
-- UIs with **frequent updates** that benefit from optimized rendering
-- Projects where the **benefits of framework conventions** outweigh the flexibility of choosing specialized tools
-- Teams already invested in the **ecosystem** of these frameworks
-- Scenarios where **developer experience features** like hot reloading, time-travel debugging, etc. are high priorities
-
-Ctrl.js can be a good choice when you want to add controlled interactivity without the overhead and complexity of a full frontend framework. It follows the principle of "use only what you need" and can be particularly valuable for incremental enhancement of existing sites.
+- You want an all-in-one, batteries-included framework.
+- You need to use libraries or tools only available in a specific framework's ecosystem.
+- Your team's skills are limited to a specific framework.
 
 ## Contributing
 
