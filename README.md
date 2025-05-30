@@ -19,16 +19,10 @@ Ctrl.js takes a fundamentally different approach by embracing rather than hiding
 
 ## Installation
 
-```html
-<script src="path/to/Ctrl.js"></script>
-```
+### Via npm
 
-Or using AMD/RequireJS:
-
-```javascript
-define(['path/to/Ctrl'], function(Ctrl) {
-  // Your code here
-});
+```bash
+npm install --save ctrljs
 ```
 
 ## Basic Usage
@@ -37,67 +31,65 @@ Here is a simple counter component in Ctrl.js.
 
 ```javascript
 // Counter.js
+import Ctrl from 'ctrljs';
 
-// Import or require the library
-define(['Ctrl'], function(Ctrl) {
-  'use strict';
-  
-  // Create an HTMLElement for the counter and define callbacks and events.
-  function el() {
-    return Ctrl.el({
-      id: 'counter',
-      classList: ['counter-container'],
-      props: { count: 0 },
-      show,
-      hide,
-      eventListeners: getEventListeners()
-    });
-  }
-  
-  // Callback for when the element is added to the DOM.
-  async function show(el) {
-    el.innerHTML = `
-      <button class="decrement">-</button>
-      <span class="count">${el.props.count}</span>
-      <button class="increment">+</button>
-    `;
-  }
-  
-  // Callback for when the element is removed from the DOM.
-  function hide(el) {
-    console.log('Counter removed from DOM');
-    // Cleanup if needed
-  }
-  
-  // Declare event listeners
-  function getEventListeners() {
-    return {
-      click: {
-        '.increment': handleIncrement,
-        '.decrement': handleDecrement
-      }
-    };
-  }
-  
-  function handleIncrement(el, event) {
-    el.props.count++;
-    el.dispatchEvent(new CustomEvent('show'));  // Trigger show
-  }
-  
-  function handleDecrement(el, event) {
-    el.props.count--;
-    el.dispatchEvent(new CustomEvent('show'));  // Trigger show
-  }
-  
-});
+// Create an HTMLElement for the counter and define callbacks and events.
+export function Counter() {
+  return Ctrl.el({
+    id: 'counter',
+    classList: ['counter-container'],
+    props: { count: 0 },
+    show,
+    hide,
+    eventListeners: getEventListeners()
+  });
+}
+
+// Callback for when the element is added to the DOM.
+async function show(el) {
+  el.innerHTML = `
+    <button class="decrement">-</button>
+    <span class="count">${el.props.count}</span>
+    <button class="increment">+</button>
+  `;
+}
+
+// Callback for when the element is removed from the DOM.
+function hide(el) {
+  console.log('Counter removed from DOM');
+  // Cleanup if needed
+}
+
+// Declare event listeners
+function getEventListeners() {
+  return {
+    click: {
+      '.increment': handleIncrement,
+      '.decrement': handleDecrement
+    }
+  };
+}
+
+function handleIncrement(el, event) {
+  el.props.count++;
+  el.dispatchEvent(new CustomEvent('show'));  // Trigger show
+}
+
+function handleDecrement(el, event) {
+  el.props.count--;
+  el.dispatchEvent(new CustomEvent('show'));  // Trigger show
+}
 ```
 
 To use the component:
 
 ```javascript
+// App.js
+import { Counter } from './Counter.js';
+
 // Create and add the counter to the page
-const counterEl = Counter.el();
-document.body.appendChild(counterEl);   // Counter.show(counterEl) will be called automatically
+const counterEl = Counter();
+document.body.appendChild(counterEl);   // show(counterEl) will be called automatically
 ```
 
 ## API Documentation
@@ -154,69 +146,70 @@ Elements created with Ctrl.js emit the following custom events during their life
 ## Composing Components
 
 ```javascript
-define(['Ctrl', 'components/list', 'components/detail'], 
-function(Ctrl, List, Detail) {
-  'use strict';
-  
-  function el() {
-    return Ctrl.el({
-      classList: ['split-view'],
-      props: {
-        items: [],
-        selectedItemId: null
-      },
-      show,
-      hide,
-      eventListeners: getEventListeners()
-    });
-  }
-  
-  async function show(el) {
-    // Fetch items
-    el.props.items = await fetchItems();
+// SplitView.js
+import { el } from 'ctrljs';
+import { List } from './components/List.js';
+import { Detail } from './components/Detail.js';
 
-    // Define the container structure
-    el.innerHTML = `
-      <div class="list-container"></div>
-      <div class="detail-container"></div>
-    `;
-    
-    // Define the child components. show() will be called immediately on
-    // these components because they are already on the DOM.
-    el.props.listComponent = List.el({
-        el: el.querySelector('.list-container'),
-        items: el.props.items,
-        selectedId: el.props.selectedItemId,
-        onSelect: itemId => {
-          el.props.selectedItemId = itemId;
-          // Update the detail view
-          el.props.detailComponent.props.itemId = itemId;
-          show(el.props.detailComponent);
-        }
-      });
-    el.props.detailComponent = Detail.el({
-        el: el.querySelector('.detail-container'),
-        itemId: el.props.selectedItemId
-      });
-  }
+export function SplitView() {
+  return Ctrl.el({
+    classList: ['split-view'],
+    props: {
+      items: [],
+      selectedItemId: null
+    },
+    show,
+    hide,
+    eventListeners: getEventListeners()
+  });
+}
 
-  async fetchItems() {
-    // Fetch from server
-  }
+async function show(el) {
+  // Fetch items
+  el.props.items = await fetchItems();
+
+  // Define the container structure
+  el.innerHTML = `
+    <div class="list-container"></div>
+    <div class="detail-container"></div>
+  `;
   
-  function hide(el) {
-    // The child components will be automatically hidden
-    // by Ctrl.js when they're removed from the DOM
-  }
+  // Define the child components. show() will be called immediately on
+  // these components because they are already on the DOM.
+  el.props.listComponent = List({
+    el: el.querySelector('.list-container'),
+    items: el.props.items,
+    selectedId: el.props.selectedItemId,
+    onSelect: itemId => {
+      el.props.selectedItemId = itemId;
+      // Update the detail view
+      el.props.detailComponent.props.itemId = itemId;
+      el.props.detailComponent.dispatchEvent(new CustomEvent('show'));
+    }
+  });
   
-  function getEventListeners() {
-    return {
-      // Global events for the split view
-    };
-  }
-  
-  return {el};
-});
+  el.props.detailComponent = Detail({
+    el: el.querySelector('.detail-container'),
+    itemId: el.props.selectedItemId
+  });
+}
+
+async function fetchItems() {
+  // Fetch from server
+  const response = await fetch('/api/items');
+  return response.json();
+}
+
+function hide(el) {
+  // The child components will be automatically hidden
+  // by Ctrl.js when they're removed from the DOM
+}
+
+function getEventListeners() {
+  return {
+    // Global events for the split view
+  };
+}
 ```
 
 ## Comparison with Popular Frontend Frameworks
@@ -246,13 +239,13 @@ One of Ctrl.js's advantages is its ability to function as part of a composable f
 
 This "pick the best tool for each job" approach can lead to more flexible, maintainable applications where each part of the system excels at its specific task. It also enables incremental adoption and easier migration paths compared to all-or-nothing framework decisions.
 
-## Ctrl.js may be right for you if...
+## Ctrl.js may work well for you if...
 
 - You are disillusioned with framework abstractions, complexities, and lock-in.
 - You are building an application that might outlive current framework trends.
 - You are looking for a lightweight declarative method of managing your control logic.
 
-## Ctrl.js may not work well for you if...
+## Ctrl.js may not be the best choice for you if...
 
 - You want an all-in-one, batteries-included framework.
 - You need to use libraries or tools only available in a specific framework's ecosystem.

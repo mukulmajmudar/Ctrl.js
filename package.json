@@ -1,0 +1,31 @@
+{
+  "name": "ctrljs",
+  "version": "1.0.3",
+  "description": "A lightweight, declarative library for implementing control logic in the MVC (Model-View-Controller) paradigm.",
+  "type": "module",
+  "browser": "./Ctrl.js",
+  "exports": "./Ctrl.js",
+  "keywords": [
+    "mvc",
+    "lifecycle",
+    "lightweight"
+  ],
+  "author": "Mukul Majmudar <mukul.majmudar@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mukulmajmudar/Ctrl.js"
+  },
+  "homepage": "https://github.com/mukulmajmudar/Ctrl.js",
+  "files": [
+    "Ctrl.js",
+    "Ctrl.min.js"
+  ],
+  "scripts": {
+    "build": "terser Ctrl.js -c -m -o Ctrl.min.js"
+  },
+  "devDependencies": {
+    "terser": "^5.27.0"
+  },
+  "sideEffects": false
+}
