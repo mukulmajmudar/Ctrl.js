@@ -1,28 +1,34 @@
 let observedElements = [];
+let observer;
 
-new MutationObserver((mutations) => {
-    // Filter garbage collected elements from observed list
-    observedElements = observedElements.filter(([elementRef]) => elementRef.deref());
+function init() {
+    observer = new MutationObserver((mutations) => {
+        // Filter garbage collected elements from observed list
+        observedElements = observedElements.filter(([elementRef]) => elementRef.deref());
 
-    // Call show() for newly added nodes
-    observedElements
-        .filter(([elementRef, _show, _hide]) => {
-            let el = elementRef.deref();
-            return document.body.contains(el) && el.props?.shown === false;
-        })
-        .forEach(([elementRef, show, _hide]) => show(elementRef.deref()))
+        // Call show() for newly added nodes
+        observedElements
+            .filter(([elementRef, _show, _hide]) => {
+                let el = elementRef.deref();
+                return document.body.contains(el) && el.props?.shown === false;
+            })
+            .forEach(([elementRef, show, _hide]) => show(elementRef.deref()))
 
-    // Call hide() for newly removed nodes
-    observedElements
-        .filter(([elementRef, _show, _hide]) => {
-            let el = elementRef.deref();
-            return !document.body.contains(el) && el.props?.shown;
-        })
-        .forEach(([elementRef, _show, hide]) => hide(elementRef.deref()))
-}).observe(document.body, {
-    childList: true,
-    subtree: true
-});
+        // Call hide() for newly removed nodes
+        observedElements
+            .filter(([elementRef, _show, _hide]) => {
+                let el = elementRef.deref();
+                return !document.body.contains(el) && el.props?.shown;
+            })
+            .forEach(([elementRef, _show, hide]) => hide(elementRef.deref()))
+    }).observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+}
+
+
+function cleanup() {if (observer) observer.disconnect();}
 
 
 function mutationsContainElement(mutations, mutationProperty, element) {
@@ -218,6 +224,8 @@ function makeHide(hide) {
 
 
 export default {
+    init,
+    cleanup,
     el
 };
 
