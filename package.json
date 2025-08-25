@@ -1,6 +1,6 @@
 {
   "name": "ctrljs",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "A lightweight, declarative library for implementing control logic in the MVC (Model-View-Controller) paradigm.",
   "type": "module",
   "browser": "./Ctrl.js",
