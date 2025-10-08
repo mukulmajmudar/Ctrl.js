@@ -1,6 +1,6 @@
 {
   "name": "ctrljs",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "A lightweight, declarative library for implementing control logic in the MVC (Model-View-Controller) paradigm.",
   "type": "module",
   "browser": "./Ctrl.js",
@@ -25,6 +25,7 @@
     "build": "terser Ctrl.js -c -m -o Ctrl.min.js"
   },
   "devDependencies": {
+    "prettier": "^3.5.3",
     "terser": "^5.27.0"
   },
   "sideEffects": false
