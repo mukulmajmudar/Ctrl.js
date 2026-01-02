@@ -1,6 +1,6 @@
 # Ctrl.js
 
-A lightweight, declarative library for implementing control logic in the MVC (Model-View-Controller) paradigm. Ctrl.js manages DOM element lifecycles, provides sophisticated event delegation, and offers an intuitive API for creating event-driven web applications.
+A lightweight, declarative framework for organizing control logic in the MVC (Model-View-Controller) paradigm. Ctrl.js manages DOM element lifecycles, provides sophisticated event delegation, and offers an intuitive API for creating event-driven web applications.
 
 ## Design Philosophy
 
@@ -13,9 +13,10 @@ Ctrl.js takes a fundamentally different approach by embracing rather than hiding
 ## Features
 
 - **Declarative Control Logic**: Simple API to define components and organize control logic.
-- **Automatic Lifecycle Management**: `show` and `hide` hooks for when elements are added to or removed from the DOM.
+- **Automatic Lifecycle Management**: `load`, `show`, and `hide` hooks for when elements are added to or removed from the DOM.
 - **Advanced Event Delegation**: Event bubbling and delegation across nested elements.
-- **Compact Footprint**: Lightweight solution with no dependencies.
+- **Thin abstraction**: Facilitates the web platform model instead of hiding it.
+- **Compact Footprint**: Lightweight approach with no dependencies.
 
 ## Installation
 
@@ -72,12 +73,12 @@ function getEventListeners() {
 
 function handleIncrement(el, event) {
   el.props.count++;
-  el.dispatchEvent(new CustomEvent('show'));  // Trigger show
+  Ctrl.show(el);
 }
 
 function handleDecrement(el, event) {
   el.props.count--;
-  el.dispatchEvent(new CustomEvent('show'));  // Trigger show
+  Ctrl.show(el);
 }
 ```
 
@@ -107,6 +108,7 @@ Creates and configures a DOM element with lifecycle hooks and event handlers.
 | `eventListeners` | Object | Event configuration (see below) |
 | `hide` | Function | Callback when element is removed from the DOM (can be async) |
 | `id` | String | The element's ID attribute |
+| `load` | Function | Callback for loading the component, called before `show()` (can be async) |
 | `props` | Object | Custom properties to attach to the element |
 | `show` | Function | Callback when element is added to the DOM (can be async) |
 | `showOnResume` | Boolean | Whether to show the element when 'resume' event fires |
@@ -138,6 +140,9 @@ Event handlers receive:
 
 Elements created with Ctrl.js emit the following custom events during their lifecycle:
 
+- `loading`: Dispatched when the element begins to load
+- `loaded`: Dispatched after the element is loaded
+- `loadError`: Dispatched if an error occurs during load
 - `showing`: Dispatched when the element begins to show
 - `shown`: Dispatched after the element is fully shown
 - `showError`: Dispatched if an error occurs during show
@@ -146,70 +151,54 @@ Elements created with Ctrl.js emit the following custom events during their life
 ## Composing Components
 
 ```javascript
-// SplitView.js
-import { el } from 'ctrljs';
-import { List } from './components/List.js';
-import { Detail } from './components/Detail.js';
+// File: Parent.js
+import Ctrl from "ctrljs";
 
-export function SplitView() {
+import Child1 from "Child1.js";
+import Child2 from "Child2.js";
+
+function el({ props: { x, y }}) {
   return Ctrl.el({
-    classList: ['split-view'],
-    props: {
-      items: [],
-      selectedItemId: null
-    },
+    load,
+    props: { x, y },
     show,
-    hide,
-    eventListeners: getEventListeners()
   });
 }
 
-async function show(el) {
-  // Fetch items
-  el.props.items = await fetchItems();
+async function load(el) {
+  const [ shared ] = await Promise.all([
+    fetch(`https://example.com/shared?x=${x}&y=${y}`),
+    // Load more props as needed
+  ]);
 
-  // Define the container structure
-  el.innerHTML = `
-    <div class="list-container"></div>
-    <div class="detail-container"></div>
-  `;
-  
-  // Define the child components. show() will be called immediately on
-  // these components because they are already on the DOM.
-  el.props.listComponent = List({
-    el: el.querySelector('.list-container'),
-    items: el.props.items,
-    selectedId: el.props.selectedItemId,
-    onSelect: itemId => {
-      el.props.selectedItemId = itemId;
-      // Update the detail view
-      el.props.detailComponent.props.itemId = itemId;
-      el.props.detailComponent.dispatchEvent(new CustomEvent('show'));
-    }
+  // Define children components after loading initial data so we can
+  // provide the appropriate data to the children.
+  el.props = {
+    ...el.props,
+    child1: Child1.el({ shared: el.props.shared }),
+    child2: Child2.el({ shared: el.props.shared }),
+    html: `
+      <div id="child1"></div>
+      <div id="child2"></div>
+    `,
+    shared
   });
-  
-  el.props.detailComponent = Detail({
-    el: el.querySelector('.detail-container'),
-    itemId: el.props.selectedItemId
-  });
+
+  // Load children components
+  await Promise.all([
+    Child1.load(el.props.child1),
+    Child2.load(el.props.child2),
+  ]);
 }
 
-async function fetchItems() {
-  // Fetch from server
-  const response = await fetch('/api/items');
-  return response.json();
+function show(el) {
+  let props = el.props;
+  el.innerHTML = Mustache.render(props.html, props);
+  el.querySelector("#child1").replaceWith(el.props.child1);
+  el.querySelector("#child2").replaceWith(el.props.child2);
 }
 
-function hide(el) {
-  // The child components will be automatically hidden
-  // by Ctrl.js when they're removed from the DOM
-}
-
-function getEventListeners() {
-  return {
-    // Global events for the split view
-  };
-}
+export default { el };
 ```
 
 ## Comparison with Popular Frontend Frameworks
@@ -220,7 +209,7 @@ Ctrl.js takes a different approach compared to comprehensive frontend frameworks
 
 | Feature | Ctrl.js | React/Vue/Svelte |
 |---------|---------|------------------|
-| **Purpose** | Lightweight control logic organization | Comprehensive UI application framework |
+| **Purpose** | Intuitive control logic organization | Comprehensive UI application framework |
 | **Size** | Tiny footprint (~2KB) | Larger runtime (35KB-100KB+) |
 | **Learning Curve** | Minimal, works with standard DOM | Steeper, framework-specific concepts |
 | **State Management** | Manual / integrable with external libraries | Built-in reactive state management |
@@ -231,7 +220,7 @@ Ctrl.js takes a different approach compared to comprehensive frontend frameworks
 
 ### Composable Architecture
 
-One of Ctrl.js's advantages is its ability to function as part of a composable frontend architecture. Unlike monolithic frameworks that provide opinions on every aspect of application development, Ctrl.js focuses exclusively on component lifecycle management and event handling, allowing you to:
+Ctrl.js functions as part of a composable frontend architecture. Unlike monolithic frameworks that provide opinions on every aspect of application development, Ctrl.js focuses exclusively on component lifecycle management and event handling, allowing you to:
 
 - Pair it with specialized state management libraries
 - Use dedicated routing solutions
@@ -239,13 +228,13 @@ One of Ctrl.js's advantages is its ability to function as part of a composable f
 
 This "pick the best tool for each job" approach can lead to more flexible, maintainable applications where each part of the system excels at its specific task. It also enables incremental adoption and easier migration paths compared to all-or-nothing framework decisions.
 
-## Ctrl.js may work well for you if...
+## Reasons to Choose Ctrl.js
 
 - You are disillusioned with framework abstractions, complexities, and lock-in.
 - You are building an application that might outlive current framework trends.
-- You are looking for a lightweight declarative method of managing your control logic.
+- You are looking for a lightweight, declarative method of managing your control logic.
 
-## Ctrl.js may not be the best choice for you if...
+## Reasons Not to Choose Ctrl.js
 
 - You want an all-in-one, batteries-included framework.
 - You need to use libraries or tools only available in a specific framework's ecosystem.

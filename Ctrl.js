@@ -40,27 +40,6 @@ function cleanup() {
   }
 }
 
-function mutationsContainElement(mutations, mutationProperty, element) {
-  let allNodes = mutations.flatMap((mutation) =>
-    Array.from(mutation[mutationProperty]),
-  );
-
-  // Check if any added node matches the element,
-  // or if any descendant of any of the added nodes matches.
-  // Descendants have to be checked because only direct
-  // node additions are considered mutations. Even
-  // if the node is not the element itself, it
-  // might have a descendant that is the element but
-  // for which the mutation will never occur.
-  return (
-    allNodes.some((node) => node === element) ||
-    allNodes
-      .filter((node) => node.querySelectorAll)
-      .flatMap((node) => node.querySelectorAll("*"))
-      .some((nodeDescendant) => nodeDescendant === element)
-  );
-}
-
 function el({
   classList = [],
   el,
